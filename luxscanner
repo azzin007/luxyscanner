@@ -1,0 +1,126 @@
+Clear-Host
+
+Write-Host """
+██╗     ██╗   ██╗██╗  ██╗
+██║     ██║   ██║╚██╗██╔╝
+██║     ██║   ██║ ╚███╔╝ 
+██║     ██║   ██║ ██╔██╗ 
+███████╗╚██████╔╝██╔╝ ██╗
+╚══════╝ ╚═════╝ ╚═╝  ╚═╝
+          LUX SCANNER
+""" -ForegroundColor Magenta
+
+Write-Host ""
+Write-Host "  Made by Bacanoicua kjj - " -ForegroundColor Blue -NoNewline
+Write-Host -ForegroundColor Red "discord.gg/wylth"
+
+Write-Host ""
+
+function Test-Admin {
+    $currentUser = New-Object Security.Principal.WindowsPrincipal $([Security.Principal.WindowsIdentity]::GetCurrent())
+    $currentUser.IsInRole([Security.Principal.WindowsBuiltinRole]::Administrator)
+}
+
+if (!(Test-Admin)) {
+    Write-Warning "Please Run This Script as Admin."
+    Start-Sleep 10
+    Exit
+}
+
+Start-Sleep -s 2
+
+# Cores do progresso
+$host.privatedata.ProgressForegroundColor = "red"
+$host.privatedata.ProgressBackgroundColor = "black"
+
+$reportPath = \"$env:USERPROFILE\Desktop\result.txt\"
+$customStrings = @("dps", "pca", "lsass", "sysmain", "msedge")
+$cheatKeywords = @("fivem", "cheat", "inject", "modmenu", "luxyscan", "bypass", "detour")
+
+function Add-Report {
+    param (
+        $category, $severity, $content
+    )
+    $emoji = switch ($severity) {
+        "high" { "🔴 Muito Suspeito – Passivo de ban/telagem" }
+        "medium" { "🟠 Suspeito" }
+        "low" { "🟡 Médio suspeito" }
+        default { "✅ Nada suspeito" }
+    }
+    Add-Content $reportPath "`n[$category] - $emoji"
+    Add-Content $reportPath "$content`n"
+}
+
+if (Test-Path $reportPath) { Remove-Item $reportPath }
+
+# --- 1. Custom Detections ---
+$foundStrings = @()
+Get-Process | ForEach-Object {
+    try {
+        foreach ($str in $customStrings) {
+            if ($_.Name -like "*$str*") {
+                $foundStrings += "$($_.Name) (PID: $($_.Id)) => $str"
+            }
+        }
+    } catch {}
+}
+if ($foundStrings) {
+    Add-Report "Custom Detections (Strings Suspeitas)" "high" ($foundStrings -join "`n")
+} else {
+    Add-Report "Custom Detections (Strings Suspeitas)" "default" "Nenhuma string suspeita detectada."
+}
+
+# --- 2. Prefetch Suspeitos ---
+$prefetch = Get-ChildItem "$env:SystemRoot\Prefetch" -ErrorAction SilentlyContinue
+$suspectPrefetch = $prefetch | Where-Object { $_.Name -match 'cheat|inject|fivem|modmenu|luxyscan|bypass|.dll|rundll32' }
+if ($suspectPrefetch.Count -gt 0) {
+    Add-Report "Arquivos Suspeitos no Prefetch" "high" ($suspectPrefetch.Name -join "`n")
+} else {
+    Add-Report "Arquivos Suspeitos no Prefetch" "default" "Nenhum arquivo suspeito encontrado."
+}
+
+# --- 3. Serviços Críticos Parados ---
+$criticalServices = @("WinDefend", "wscsvc", "SysMain", "EventLog", "SecurityHealthService")
+$stopped = Get-Service | Where-Object { $_.Status -eq 'Stopped' -and $criticalServices -contains $_.Name }
+if ($stopped) {
+    Add-Report "Serviços Críticos Parados" "high" ($stopped | ForEach-Object { "$($_.Name) - $($_.DisplayName)" } -join "`n")
+} else {
+    Add-Report "Serviços Críticos Parados" "default" "Todos os serviços críticos estão ativos."
+}
+
+# --- 4. Logs do Windows Defender ---
+$defenderLog = Get-WinEvent -LogName "Microsoft-Windows-Windows Defender/Operational" -MaxEvents 100 -ErrorAction SilentlyContinue |
+    Where-Object { $_.Message -match 'Detected|Malware|Trojan|HackTool' }
+if ($defenderLog) {
+    Add-Report "Logs do Windows Defender" "medium" ($defenderLog | Select-Object -First 5 | ForEach-Object { $_.Message } -join "`n")
+} else {
+    Add-Report "Logs do Windows Defender" "default" "Sem registros de malware recentes."
+}
+
+# --- 5. Últimos Comandos do PowerShell ---
+$psHistory = Get-Content (Get-PSReadlineOption).HistorySavePath -ErrorAction SilentlyContinue | Select-Object -Last 10
+if ($psHistory) {
+    Add-Report "Histórico Recente do PowerShell" "low" ($psHistory -join "`n")
+} else {
+    Add-Report "Histórico Recente do PowerShell" "default" "Nenhum comando recente detectado."
+}
+
+# --- 6. Logs de FiveM ---
+$fivemPaths = @("$env:LOCALAPPDATA\FiveM", "$env:APPDATA\CitizenFX", "$env:APPDATA\FiveM")
+$fivemSuspect = @()
+foreach ($dir in $fivemPaths) {
+    if (Test-Path $dir) {
+        $logs = Get-ChildItem -Path $dir -Recurse -ErrorAction SilentlyContinue | Where-Object {
+            $_.Name -match 'cheat|log|inject|mod|bypass'
+        }
+        if ($logs) { $fivemSuspect += $logs.FullName }
+    }
+}
+if ($fivemSuspect) {
+    Add-Report "Possíveis Logs de Cheats do FiveM" "high" ($fivemSuspect -join "`n")
+} else {
+    Add-Report "Possíveis Logs de Cheats do FiveM" "default" "Nada suspeito encontrado nos diretórios conhecidos."
+}
+
+Write-Host ""
+Write-Host "Relatório salvo como 'result.txt' na Área de Trabalho." -ForegroundColor Green
