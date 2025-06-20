@@ -33,7 +33,7 @@ Start-Sleep -s 2
 $host.privatedata.ProgressForegroundColor = "red"
 $host.privatedata.ProgressBackgroundColor = "black"
 
-$reportPath = \"$env:USERPROFILE\Desktop\result.txt\"
+$reportPath = "$env:USERPROFILE\Desktop\result.txt"
 $customStrings = @("dps", "pca", "lsass", "sysmain", "msedge")
 $cheatKeywords = @("fivem", "cheat", "inject", "modmenu", "luxyscan", "bypass", "detour")
 
@@ -72,7 +72,7 @@ if ($foundStrings) {
 
 # --- 2. Prefetch Suspeitos ---
 $prefetch = Get-ChildItem "$env:SystemRoot\Prefetch" -ErrorAction SilentlyContinue
-$suspectPrefetch = $prefetch | Where-Object { $_.Name -match 'cheat|inject|fivem|modmenu|luxyscan|bypass|.dll|rundll32' }
+$suspectPrefetch = $prefetch | Where-Object { $_.Name -match 'cheat|inject|fivem|modmenu|luxyscan|bypass' }
 if ($suspectPrefetch.Count -gt 0) {
     Add-Report "Arquivos Suspeitos no Prefetch" "high" ($suspectPrefetch.Name -join "`n")
 } else {
@@ -124,4 +124,5 @@ if ($fivemSuspect) {
 
 Write-Host ""
 Write-Host "Relatório salvo como 'result.txt' na Área de Trabalho." -ForegroundColor Green
+
 Start-Process notepad.exe $reportPath
