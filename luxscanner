@@ -124,3 +124,4 @@ if ($fivemSuspect) {
 
 Write-Host ""
 Write-Host "Relatório salvo como 'result.txt' na Área de Trabalho." -ForegroundColor Green
+Start-Process notepad.exe $reportPath
